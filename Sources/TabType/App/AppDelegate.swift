@@ -111,7 +111,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "TabType")
+            button.image = NSImage(named: "MenuBarIcon")
+                ?? NSImage(systemSymbolName: "character.cursor.ibeam", accessibilityDescription: "TabType")
             button.image?.isTemplate = true
         }
         statusItem.isVisible = settings.showMenuBarIcon
