@@ -38,6 +38,9 @@ final class Statistics: ObservableObject {
     @Published private(set) var suggestionsShown: Int
     @Published private(set) var suggestionsAccepted: Int
     @Published private(set) var wordsCompleted: Int
+    /// Words completed since local midnight — the menu-bar counter.
+    @Published private(set) var wordsToday: Int
+    private var wordsTodayDay: String
     @Published private(set) var funnel: [FunnelEvent: Int]
     /// Accepts of a single word vs. several words at once.
     @Published private(set) var singleWordAccepts: Int
@@ -50,6 +53,8 @@ final class Statistics: ObservableObject {
         static let shown = "stat_suggestionsShown"
         static let accepted = "stat_suggestionsAccepted"
         static let words = "stat_wordsCompleted"
+        static let wordsToday = "stat_wordsToday"
+        static let wordsTodayDay = "stat_wordsTodayDay"
         static func funnel(_ e: FunnelEvent) -> String { "stat_funnel_\(e.rawValue)" }
         static let singleWord = "stat_acceptsSingleWord"
         static let multiWord = "stat_acceptsMultiWord"
@@ -60,6 +65,8 @@ final class Statistics: ObservableObject {
         suggestionsShown = defaults.integer(forKey: Keys.shown)
         suggestionsAccepted = defaults.integer(forKey: Keys.accepted)
         wordsCompleted = defaults.integer(forKey: Keys.words)
+        wordsTodayDay = defaults.string(forKey: Keys.wordsTodayDay) ?? ""
+        wordsToday = wordsTodayDay == Self.dayKey() ? defaults.integer(forKey: Keys.wordsToday) : 0
         var f: [FunnelEvent: Int] = [:]
         for e in FunnelEvent.allCases {
             f[e] = defaults.integer(forKey: Keys.funnel(e))
@@ -94,6 +101,22 @@ final class Statistics: ObservableObject {
         return requested == 0 ? 0 : Double(suggestionsShown) / Double(requested)
     }
 
+    private static func dayKey(_ date: Date = Date()) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    /// Zero the daily counter once the date has changed (call at midnight and
+    /// before counting).
+    func rollOverDayIfNeeded() {
+        let today = Self.dayKey()
+        guard today != wordsTodayDay else { return }
+        wordsTodayDay = today
+        wordsToday = 0
+        defaults.set(today, forKey: Keys.wordsTodayDay)
+        defaults.set(0, forKey: Keys.wordsToday)
+    }
+
     func recordShown() {
         suggestionsShown += 1
         persist()
@@ -102,6 +125,9 @@ final class Statistics: ObservableObject {
     func recordAccepted(wordCount: Int) {
         suggestionsAccepted += 1
         wordsCompleted += wordCount
+        rollOverDayIfNeeded()
+        wordsToday += wordCount
+        defaults.set(wordsToday, forKey: Keys.wordsToday)
         if wordCount > 1 { multiWordAccepts += 1 } else { singleWordAccepts += 1 }
         defaults.set(singleWordAccepts, forKey: Keys.singleWord)
         defaults.set(multiWordAccepts, forKey: Keys.multiWord)
@@ -131,6 +157,8 @@ final class Statistics: ObservableObject {
         suggestionsShown = 0
         suggestionsAccepted = 0
         wordsCompleted = 0
+        wordsToday = 0
+        defaults.set(0, forKey: Keys.wordsToday)
         for e in FunnelEvent.allCases {
             funnel[e] = 0
             defaults.removeObject(forKey: Keys.funnel(e))

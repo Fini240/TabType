@@ -41,6 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             .receive(on: RunLoop.main)
             .sink { [weak self] show in self?.statusItem.isVisible = show }
             .store(in: &cancellables)
+        // Today's completed words next to the icon, like Cotypist's counter.
+        Statistics.shared.$wordsToday
+            .combineLatest(settings.$showMenuBarWordCount)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] words, show in self?.updateWordCount(words, show: show) }
+            .store(in: &cancellables)
+        NotificationCenter.default.addObserver(
+            forName: .NSCalendarDayChanged, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { Statistics.shared.rollOverDayIfNeeded() }
+        }
 
         // Accessory button → open Settings.
         NotificationCenter.default.addObserver(
@@ -124,6 +134,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         rebuildMenu()
     }
 
+    private func updateWordCount(_ words: Int, show: Bool) {
+        guard let button = statusItem.button else { return }
+        button.title = show ? " \(words.formatted())" : ""
+        button.imagePosition = show ? .imageLeading : .imageOnly
+    }
+
     /// Rebuild right before the menu is shown, so a time-limited pause that expired
     /// while the menu was closed is reflected immediately.
     func menuWillOpen(_ menu: NSMenu) {
@@ -135,6 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.removeAllItems()
 
         menu.addItem(item(statusLine(), icon: engineIconName(), enabled: false))
+        Statistics.shared.rollOverDayIfNeeded()
+        let today = Statistics.shared.wordsToday, total = Statistics.shared.wordsCompleted
+        menu.addItem(item("Today: \(today.formatted()) word\(today == 1 ? "" : "s") completed · \(total.formatted()) total",
+                          icon: "text.word.spacing", enabled: false))
         if secureInputActive {
             menu.addItem(item(secureInputHolder.map { "Secure Input is held by \($0) — suggestions paused" }
                               ?? "Secure Input is on — suggestions paused",

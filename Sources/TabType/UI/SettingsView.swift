@@ -126,6 +126,8 @@ struct GeneralSettingsView: View {
                 Toggle("Launch TabType at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in LaunchAtLogin.set(on) }
                 Toggle("Show menu bar icon", isOn: $settings.showMenuBarIcon)
+                Toggle("Show today's word count in the menu bar", isOn: $settings.showMenuBarWordCount)
+                    .disabled(!settings.showMenuBarIcon)
                 Toggle("Show floating accessory button", isOn: $settings.showAccessoryButton)
                 Toggle("Disable macOS predictive text", isOn: $settings.disableMacOSPredictiveText)
                 if settings.disableMacOSPredictiveText {

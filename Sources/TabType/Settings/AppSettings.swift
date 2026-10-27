@@ -84,6 +84,8 @@ final class AppSettings: ObservableObject {
 
     // MARK: General polish
     @Published var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Keys.showMenuBarIcon) } }
+    /// Today's completed-word count next to the menu-bar icon (as Cotypist had).
+    @Published var showMenuBarWordCount: Bool { didSet { defaults.set(showMenuBarWordCount, forKey: Keys.showMenuBarWordCount) } }
     @Published var showAccessoryButton: Bool { didSet { defaults.set(showAccessoryButton, forKey: Keys.showAccessoryButton) } }
     @Published var disableMacOSPredictiveText: Bool { didSet { defaults.set(disableMacOSPredictiveText, forKey: Keys.disableMacOSPredictiveText) } }
     /// "short" | "medium" | "long" → maps to maxWords.
@@ -181,6 +183,7 @@ final class AppSettings: ObservableObject {
         useClipboardContext = defaults.object(forKey: Keys.useClipboardContext) as? Bool ?? false
         useScreenshotAppearance = defaults.object(forKey: Keys.useScreenshotAppearance) as? Bool ?? true
         showMenuBarIcon = defaults.object(forKey: Keys.showMenuBarIcon) as? Bool ?? true
+        showMenuBarWordCount = defaults.object(forKey: Keys.showMenuBarWordCount) as? Bool ?? true
         showAccessoryButton = defaults.object(forKey: Keys.showAccessoryButton) as? Bool ?? false
         disableMacOSPredictiveText = defaults.object(forKey: Keys.disableMacOSPredictiveText) as? Bool ?? false
         completionLength = defaults.string(forKey: Keys.completionLength) ?? "medium"
@@ -262,6 +265,7 @@ final class AppSettings: ObservableObject {
         static let useScreenshotAppearance = "useScreenshotAppearance"
         static let didShowGoogleDocsHint = "didShowGoogleDocsHint"
         static let showMenuBarIcon = "showMenuBarIcon"
+        static let showMenuBarWordCount = "showMenuBarWordCount"
         static let showAccessoryButton = "showAccessoryButton"
         static let completionLength = "completionLength"
         static let disableMacOSPredictiveText = "disableMacOSPredictiveText"
