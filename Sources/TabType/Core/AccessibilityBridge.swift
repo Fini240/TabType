@@ -397,8 +397,19 @@ enum AccessibilityBridge {
         }
 
         let anchor: CGRect? = caret > 0
-            ? boundsForRange(element, location: caret - 1, length: 1).map {
-                CGRect(x: $0.maxX, y: $0.minY, width: 1, height: $0.height)
+            ? boundsForRange(element, location: caret - 1, length: 1).map { prev in
+                // Terminal.app trims trailing blanks, so a caret after a typed space
+                // reads as the start of the NEXT row and the "character" before it is
+                // the row's newline, whose box runs to the window edge. Put the caret
+                // one cell past where the row's text ends instead.
+                if prev.height > 2, prev.width > prev.height * 3,
+                   string(of: element, location: caret - 1, length: 1) == "\n" {
+                    let cell = boundsForRange(element, location: caret - 2, length: 1)
+                        .flatMap { sameLine($0, prev) && $0.width < prev.height ? $0.width : nil }
+                        ?? (prev.height * 0.47).rounded()
+                    return CGRect(x: prev.minX + cell, y: prev.minY, width: 1, height: prev.height)
+                }
+                return CGRect(x: prev.maxX, y: prev.minY, width: 1, height: prev.height)
               }
             : nil
 
@@ -432,6 +443,17 @@ enum AccessibilityBridge {
         // caret geometry via text markers rather than NSRange.
         if let r = textMarkerCaretRect(element), isValidCaretRect(r) { return r }
         return nil
+    }
+
+    private static func string(of element: AXUIElement, location: Int, length: Int) -> String? {
+        guard location >= 0 else { return nil }
+        var cfRange = CFRange(location: location, length: length)
+        guard let rangeValue = AXValueCreate(.cfRange, &cfRange) else { return nil }
+        var ref: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            element, kAXStringForRangeParameterizedAttribute as CFString, rangeValue, &ref) == .success
+        else { return nil }
+        return ref as? String
     }
 
     private static func boundsForRange(_ element: AXUIElement, location: Int, length: Int) -> CGRect? {
