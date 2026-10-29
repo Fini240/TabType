@@ -52,6 +52,13 @@ final class AppSettings: ObservableObject {
 
     // MARK: TabType Labs (experimental)
     @Published var autocorrectLanguage: String { didSet { defaults.set(autocorrectLanguage, forKey: Keys.autocorrectLanguage) } }
+    /// The user's own words autocorrect leaves alone (on top of the shipped AI/tech list).
+    @Published var autocorrectOwnWords: [String] {
+        didSet {
+            defaults.set(autocorrectOwnWords, forKey: Keys.autocorrectOwnWords)
+            SpellChecker.shared.setUserWords(autocorrectOwnWords)
+        }
+    }
 
     // MARK: On battery power (Cotypist's battery options)
     @Published var batteryOnDemandOnly: Bool { didSet { defaults.set(batteryOnDemandOnly, forKey: Keys.batteryOnDemandOnly) } }
@@ -221,6 +228,9 @@ final class AppSettings: ObservableObject {
         let sysLang = Locale.current.language.languageCode?.identifier ?? "en"
         autocorrectLanguage = defaults.string(forKey: Keys.autocorrectLanguage)
             ?? (SpellChecker.supported.contains(sysLang) ? sysLang : "en")
+        let ownWords = defaults.stringArray(forKey: Keys.autocorrectOwnWords) ?? []
+        autocorrectOwnWords = ownWords
+        SpellChecker.shared.setUserWords(ownWords)
         acceptWordKey = AppSettings.loadBinding(Keys.acceptWordKey, default: .tab)
         acceptAllKey = AppSettings.loadBinding(Keys.acceptAllKey, default: .shiftTab)
         dismissKey = AppSettings.loadBinding(Keys.dismissKey, default: .escape)
@@ -286,6 +296,7 @@ final class AppSettings: ObservableObject {
         static let autocorrectEnabled = "autocorrectEnabled"
         static let skipOnTypo = "skipOnTypo"
         static let autocorrectLanguage = "autocorrectLanguage"
+        static let autocorrectOwnWords = "autocorrectOwnWords"
         static let emoticonsEnabled = "emoticonsEnabled"
         static let emojiSkinTone = "emojiSkinTone"
         static let emojiGender = "emojiGender"

@@ -52,6 +52,7 @@ let package = Package(
                 .process("Resources/frequency_dictionary_te.txt"),
                 .process("Resources/frequency_dictionary_ml.txt"),
                 .process("Resources/frequency_dictionary_ur.txt"),
+                .process("Resources/own_words.txt"),
             ]
         ),
         .testTarget(

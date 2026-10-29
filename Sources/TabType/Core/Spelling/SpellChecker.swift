@@ -23,8 +23,39 @@ final class SpellChecker: @unchecked Sendable {
     private let loadQueue = DispatchQueue(label: "app.tabtype.spell.load", qos: .utility)
     private var loading = Set<String>()                // on `queue`
     private let maxLoaded = 2
+    /// Words never treated as typos: the shipped AI/tech list (`own_words.txt`)
+    /// plus the user's own (Settings ▸ Autocorrect, or learned by undoing a fix).
+    private lazy var builtinWords: Set<String> = Self.loadBuiltinWords()   // on `queue`
+    private var userWords = Set<String>()                                  // on `queue`
 
     private init() {}
+
+    /// Replace the user's own never-correct words (lowercased, any order).
+    func setUserWords(_ words: [String]) {
+        let set = Set(words.map { $0.lowercased() })
+        queue.async { [weak self] in self?.userWords = set }
+    }
+
+    /// On `queue`.
+    private func isOwnWord(_ word: String) -> Bool {
+        let w = word.lowercased()
+        return builtinWords.contains(w) || userWords.contains(w)
+    }
+
+    private static func loadBuiltinWords() -> Set<String> {
+        let urls = [
+            Bundle.module.url(forResource: "own_words", withExtension: "txt"),
+            Bundle.main.url(forResource: "own_words", withExtension: "txt"),
+        ]
+        for case let url? in urls {
+            if let text = try? String(contentsOf: url, encoding: .utf8) {
+                return Set(text.split(whereSeparator: \.isNewline)
+                    .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+                    .filter { !$0.isEmpty && !$0.hasPrefix("#") })
+            }
+        }
+        return []
+    }
 
     /// Kick off a background index build for `language` (idempotent).
     func loadIfNeeded(language: String) {
@@ -47,6 +78,7 @@ final class SpellChecker: @unchecked Sendable {
             // All of them, or none: with only one loaded, a word from the other
             // language would look like a typo.
             guard dicts.count == langs.count, word.count >= 3, word.allSatisfy({ $0.isLetter }),
+                  !self.isOwnWord(word),
                   !dicts.contains(where: { $0.isKnown(word) }),
                   let best = dicts.compactMap({ $0.bestMatch(word) }).min(by: { $0.distance < $1.distance }),
                   best.distance <= (word.count >= 9 ? 2 : 1),
@@ -122,7 +154,9 @@ final class SpellChecker: @unchecked Sendable {
                     cont.resume(returning: false)   // fail open — no dictionary, don't block
                     return
                 }
-                if isPartial {
+                if self.isOwnWord(word) {
+                    cont.resume(returning: false)
+                } else if isPartial {
                     cont.resume(returning: !sym.isKnownOrPrefix(word.lowercased()))
                 } else {
                     cont.resume(returning: sym.bestSuggestion(word) != nil)

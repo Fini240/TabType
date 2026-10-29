@@ -160,4 +160,22 @@ final class PartialTypoGateTests: XCTestCase {
             XCTAssertEqual(fixed, word, typo)
         }
     }
+
+    func testAutocorrectLeavesBuiltinTechWordsAlone() async throws {
+        try await waitForDictionaries()
+        for word in ["tailscale", "zimaos", "jellyfin", "Ollama", "GitHub", "agentic", "subagents"] {
+            let fixed = await corrected(word)
+            XCTAssertNil(fixed, word)
+        }
+    }
+
+    func testAutocorrectLeavesUserWordsAlone() async throws {
+        try await waitForDictionaries()
+        let before = await corrected("brumbo")
+        XCTAssertNotNil(before)   // sanity: it would be "fixed" without the user word
+        SpellChecker.shared.setUserWords(["Brumbo"])
+        defer { SpellChecker.shared.setUserWords([]) }
+        let after = await corrected("brumbo")
+        XCTAssertNil(after)
+    }
 }

@@ -69,7 +69,16 @@ struct TextToolsPane: View {
                 .onChange(of: settings.autocorrectLanguage) { _, lang in
                     SpellChecker.shared.loadIfNeeded(language: lang)
                 }
-                Text("When you finish a word, clear typos are corrected in place (e.g. \"teh\" → \"the\"). Never in password fields.")
+                Text("When you finish a word, clear typos are corrected in place (e.g. \"teh\" → \"the\"). Never in password fields. Press Delete right after a fix to undo it — the word is then never corrected again.")
+                    .font(.caption).foregroundStyle(.secondary)
+                TextField("Never correct", text: Binding(
+                    get: { settings.autocorrectOwnWords.joined(separator: ", ") },
+                    set: { settings.autocorrectOwnWords = $0.split(whereSeparator: { $0 == "," || $0.isNewline })
+                        .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }),
+                    axis: .vertical)
+                    .lineLimit(2...6)
+                    .disabled(!settings.autocorrectEnabled)
+                Text("Your own words, separated by commas. Common AI and tech names (GitHub, Tailscale, Ollama, Roblox…) are already built in.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Don't suggest while a word is misspelled", isOn: $settings.skipOnTypo)
                     .onChange(of: settings.skipOnTypo) { _, on in

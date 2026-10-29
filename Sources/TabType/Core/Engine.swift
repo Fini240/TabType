@@ -28,6 +28,9 @@ final class Engine {
     /// Fallback context buffer, used when the Accessibility API can't provide the
     /// focused field's text. Rebuilt on focus change.
     private var buffer = ""
+    /// The last autocorrection, until the next keystroke: Delete right after it
+    /// restores the typed word and adds it to the user's never-correct words.
+    private var lastCorrection: (typed: String, corrected: String, at: Date)?
     /// The ghost suggestion's lifecycle (type-through, Tab remainders, stale and
     /// repeated results) — see `SuggestionSession`.
     private var session = SuggestionSession() { didSet { refreshHotKeys() } }
@@ -920,6 +923,13 @@ final class Engine {
             buffer += chars
         }
 
+        if let fix = lastCorrection {
+            lastCorrection = nil
+            if isDeletion, Date().timeIntervalSince(fix.at) < 5, buffer.hasSuffix(fix.corrected) {
+                undoAutocorrect(fix.typed, replacing: fix.corrected)
+            }
+        }
+
         // Inline commands (:emoji / macro) take priority over LLM suggestions.
         let commandActive = inlineCommand.handleEdit(
             chars: chars, isDeletion: isDeletion,
@@ -1305,8 +1315,23 @@ final class Engine {
             self.dropPendingEdits()   // text changed other than by typing
             TextInserter.backspace(count: deleteCount)
             TextInserter.insert(corrected + boundary, strategy: .keystroke)
+            self.lastCorrection = (wordStr, corrected, Date())
             Log.shared.debug("autocorrect: \(wordStr) -> \(corrected)")
         }
+    }
+
+    /// Delete right after an autocorrection (which removed its trailing boundary):
+    /// put the typed word back and never correct it again.
+    private func undoAutocorrect(_ typed: String, replacing corrected: String) {
+        buffer = String(buffer.dropLast(corrected.count)) + typed
+        dropPendingEdits()
+        TextInserter.backspace(count: corrected.count)
+        TextInserter.insert(typed, strategy: .keystroke)
+        let word = typed.lowercased()
+        if !settings.autocorrectOwnWords.contains(where: { $0.lowercased() == word }) {
+            settings.autocorrectOwnWords.append(word)
+        }
+        Log.shared.debug("autocorrect undone: \(corrected) -> \(typed)")
     }
 
     /// Trims the suggestion's tail when it duplicates the text already after the
