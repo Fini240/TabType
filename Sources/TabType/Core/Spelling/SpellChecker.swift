@@ -63,6 +63,22 @@ final class SpellChecker: @unchecked Sendable {
         queue.async { [weak self] in _ = self?.ensureLoaded(lang) }
     }
 
+    /// English contractions typed without the apostrophe. Edit distance alone gets
+    /// these wrong ("dont" → "done", "isnt" → "int", "youre" → "your").
+    static let contractions: [String: String] = [
+        "dont": "don't", "didnt": "didn't", "doesnt": "doesn't", "isnt": "isn't",
+        "wasnt": "wasn't", "arent": "aren't", "werent": "weren't", "havent": "haven't",
+        "hasnt": "hasn't", "hadnt": "hadn't", "wouldnt": "wouldn't", "couldnt": "couldn't",
+        "shouldnt": "shouldn't", "mustnt": "mustn't", "neednt": "needn't", "cant": "can't",
+        "wont": "won't", "aint": "ain't", "thats": "that's", "whats": "what's",
+        "theres": "there's", "heres": "here's", "wheres": "where's", "whos": "who's",
+        "hows": "how's", "youre": "you're", "theyre": "they're", "ive": "I've",
+        "youve": "you've", "weve": "we've", "theyve": "they've", "youd": "you'd",
+        "theyd": "they'd", "youll": "you'll", "theyll": "they'll", "itll": "it'll",
+        "thatll": "that'll", "shes": "she's", "shouldve": "should've",
+        "wouldve": "would've", "couldve": "could've", "mightve": "might've", "yall": "y'all",
+    ]
+
     /// A confident correction for `word` in `language`, on the main actor, or nil.
     /// English is consulted too (as in `isPlausibleContinuation`): a word known in
     /// either dictionary is left alone, otherwise the closer correction wins (ties
@@ -74,6 +90,11 @@ final class SpellChecker: @unchecked Sendable {
         let langs = lang == "en" ? ["en"] : ["en", lang]
         queue.async { [weak self] in
             guard let self else { return }
+            if let full = Self.contractions[word.lowercased()], !self.isOwnWord(word) {
+                let result = full == "I've" ? full : Self.applyCase(of: word, to: full)
+                Task { @MainActor in completion(result) }
+                return
+            }
             let dicts = langs.compactMap { self.ensureLoaded($0) }.filter(\.isReady)
             // All of them, or none: with only one loaded, a word from the other
             // language would look like a typo.

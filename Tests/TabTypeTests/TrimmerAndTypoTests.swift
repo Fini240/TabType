@@ -169,6 +169,22 @@ final class PartialTypoGateTests: XCTestCase {
         }
     }
 
+    func testAutocorrectRestoresMissingApostrophes() async throws {
+        try await waitForDictionaries()
+        for (typed, word) in [("dont", "don't"), ("isnt", "isn't"), ("youre", "you're"), ("Thats", "That's"), ("ive", "I've")] {
+            let fixed = await corrected(typed)
+            XCTAssertEqual(fixed, word, typed)
+        }
+    }
+
+    func testAutocorrectLeavesSlangAlone() async throws {
+        try await waitForDictionaries()
+        for word in ["bruh", "sus", "rizz", "goated", "favorite", "centered", "debounce"] {
+            let fixed = await corrected(word)
+            XCTAssertNil(fixed, word)
+        }
+    }
+
     func testAutocorrectLeavesUserWordsAlone() async throws {
         try await waitForDictionaries()
         let before = await corrected("brumbo")
